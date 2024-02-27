@@ -16,18 +16,23 @@ def test_index_form_get(client):
 
 
 def test_index_form_post(client):
+    custom_id = 'Id0123'
     got = client.post('/', data={
         'original_link': py_url,
-        'custom_id': 'py',
+        'custom_id': custom_id,
     })
     assert got.status_code == 200, (
         'При отправке формы главная страница должна возвращать статус `200`'
     )
-    unique_id = URLMap.query.filter_by(original=py_url, short='py').first()
+    unique_id = (
+        URLMap.query.filter_by(original=py_url, short=custom_id).first()
+    )
     assert unique_id, (
         'После отправки формы в базе данных должна создаваться новая запись.'
     )
-    assert '<a href="http://localhost/py"' in got.data.decode('utf-8'), (
+    assert (
+        f'<a href="http://localhost/{custom_id}"' in got.data.decode('utf-8')
+    ), (
         'После отправки формы на главной странице должна отобразиться '
         'созданная ссылка.'
     )

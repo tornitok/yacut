@@ -1,126 +1,165 @@
+import re
+from http import HTTPStatus
+
 import pytest
 
 from yacut.models import URLMap
 
-py_url = 'https://www.python.org'
+PY_URL = 'https://www.python.org'
+CUSTOM_ID = 'py'
+TEST_BASE_URL = 'http://localhost'
+INDEX_URL = '/'
 
 
 def test_index_form_get(client):
-    got = client.get('/')
-    assert got.status_code == 200, (
-        'GET-запрос к главной странице должен возвращать статус `200`.'
+    response = client.get(INDEX_URL)
+    assert response.status_code == HTTPStatus.OK, (
+        'GET-запрос к главной странице должен возвращать статус '
+        f'`{HTTPStatus.OK.value}`.'
     )
-    assert b'form' in got.data, (
-        'Добавьте форму в конекст страницы `index`'
+    assert b'form' in response.data, (
+        'Убедитесь, что на главной странице отображается форма.'
     )
 
 
 def test_index_form_post(client):
-    custom_id = 'Id0123'
-    got = client.post('/', data={
-        'original_link': py_url,
-        'custom_id': custom_id,
+    response = client.post(INDEX_URL, data={
+        'original_link': PY_URL,
+        'custom_id': CUSTOM_ID,
     })
-    assert got.status_code == 200, (
-        'При отправке формы главная страница должна возвращать статус `200`'
+    assert response.status_code == HTTPStatus.OK, (
+        'При отправке корректно заполненной формы на главной странице '
+        f'должна вернуться ответ со статус-кодом `{HTTPStatus.OK.value}`.'
     )
-    unique_id = (
-        URLMap.query.filter_by(original=py_url, short=custom_id).first()
+    url_map_obj = URLMap.query.filter_by(original=PY_URL, short='py').first()
+    assert url_map_obj, (
+        'После отправки корректно заполненной формы на главной странице '
+        'должна быть создана новая запись в базе данных.'
     )
-    assert unique_id, (
-        'После отправки формы в базе данных должна создаваться новая запись.'
+    assert url_map_obj.original == PY_URL, (
+        'Убедитесь, что при обработке формы на главной странице '
+        'и создании записи в базе данных в поле `original` попадают '
+        'корректные данные.'
     )
-    assert (
-        f'<a href="http://localhost/{custom_id}"' in got.data.decode('utf-8')
-    ), (
+    assert url_map_obj.short == CUSTOM_ID, (
+        'Убедитесь, что если в форме не указана короткая ссылка - '
+        'при создании записи в базе данных в поле `short` попадает '
+        'значение из формы.'
+    )
+    expected_link = f'<a href="{TEST_BASE_URL}/{CUSTOM_ID}"'
+    assert expected_link in re.sub("'", '"', response.data.decode('utf-8')), (
         'После отправки формы на главной странице должна отобразиться '
         'созданная ссылка.'
     )
 
 
-def test_duplicated_url_in_form(client, short_python_url):
-    got = client.post('/', data={
-        'original_link': py_url,
-        'custom_id': 'py',
+def test_duplicated_url_in_form(client, short_python_url,
+                                duplicated_custom_id_msg):
+    response = client.post(INDEX_URL, data={
+        'original_link': PY_URL,
+        'custom_id': CUSTOM_ID,
     }, follow_redirects=True)
-    assert (
-        'Предложенный вариант короткой ссылки уже существует.'
-        in got.data.decode('utf-8')
-    ), (
-        'Если полученное в запросе короткое имя для ссылки уже занято - на '
-        'главной странице после отправки формы должен отобразиться текст '
-        '"Предложенный вариант короткой ссылки уже существует."'
+    assert duplicated_custom_id_msg in response.data.decode('utf-8'), (
+        'Если полученный в форме вариант короткой ссылки уже существует - '
+        'на главной странице должено отобразиться сообщение '
+        f'`{duplicated_custom_id_msg}`'
     )
 
 
 def test_get_unique_short_id(client):
-    got = client.post('/', data={
-        'original_link': py_url,
+    asser_msg_pattern = (
+        'При отправке на главной странице формы с незаполненным полем для '
+        'пользовательского варианта короткой ссылки {}.'
+    )
+    response = client.post(INDEX_URL, data={
+        'original_link': PY_URL,
     })
-    assert got.status_code == 200, (
-        'При отправке формы без заданного значения короткой ссылки '
-        'главная страница должна вернуть статус-код `200`'
+    assert response.status_code == HTTPStatus.OK, (
+        asser_msg_pattern.format(
+            f'должн вернуть статус-код `{HTTPStatus.OK.value}`'
+        )
     )
-    unique_id = URLMap.query.filter_by(original=py_url).first()
-    assert unique_id, (
-        'При отправке формы без заданного значения короткой ссылки '
-        'в базе данных должна создаваться новая запись.'
+    url_map_object = URLMap.query.filter_by(original=PY_URL).first()
+    assert url_map_object, (
+        asser_msg_pattern.format(
+            'в базе данных должна создаваться новая запись'
+        )
     )
-    assert (
-        f'Ваша новая ссылку готова: http://localhost:5000/{unique_id.short}'
-    ), (
-        'После отправки формы без заданного значения короткой ссылки '
-        'на главной странице должна быть отображена созданная ссылка.'
+    assert url_map_object.short, (
+        asser_msg_pattern.format(
+            'поле `short` объекта `URLMap` должно быть заполнено автоматически'
+        )
+    )
+    expected_link = f'<a href="{TEST_BASE_URL}/{url_map_object.short}"'
+    assert expected_link in re.sub("'", '"', response.data.decode('utf-8')), (
+        'После отправки формы на главной странице должна отобразиться '
+        'созданная ссылка.'
     )
 
 
 def test_redirect_url(client, short_python_url):
-    got = client.get(f'/{short_python_url.short}')
-    assert got.status_code == 302, (
-        'При перенаправлении по короткому адресу убедитесь, что возвращается '
-        'статус-код `302`'
+    response = client.get(f'/{short_python_url.short}')
+    assert response.status_code == HTTPStatus.FOUND, (
+        'При переходе по короткой ссылке должен вернуться статус-код '
+        f'`{HTTPStatus.FOUND.value}`.'
     )
-    assert got.location == short_python_url.original, (
-        'При перенаправлении по короткому адресу убедитесь в корректности '
-        'оригинального адреса'
+    assert response.location == short_python_url.original, (
+        'При переходе по короткой ссылке пользователь должен быть  '
+        'перенаправлен на оригинальную страницу.'
     )
 
 
 def test_len_short_id_form(client):
-    long_string = (
-        'CuriosityisnotasinHarryHoweverfromtimetotimeyoushouldexercisecaution'
+    assert_msg_pattern = (
+        'Если пользовательский вариант короткой ссылки, отправленный в форме '
+        'на главной странице, длиннее 16 символов - {}.'
     )
-    got = client.post('/', data={
-        'original_link': py_url,
-        'custom_id': long_string,
+    long_custom_id = 'f' * 17
+    response = client.post(INDEX_URL, data={
+        'original_link': PY_URL,
+        'custom_id': long_custom_id,
     })
-    assert 'Ваша новая ссылка готова' not in got.data.decode('utf-8'), (
-        'Если через форму отправлено имя короткой ссылки длиннее 16 символов '
-        '- на странице должно отобразиться сообщение об ошибке.'
+    url_map_object = URLMap.query.filter_by(short=long_custom_id).first()
+    assert not url_map_object, (
+        assert_msg_pattern.format(
+            'новая запись в базе данных не должна быть создана'
+        )
+    )
+    posible_link = f'<a href="{TEST_BASE_URL}/long_custom_id"'
+    assert (
+        posible_link not in re.sub("'", '"', response.data.decode('utf-8'))
+    ), (
+        assert_msg_pattern.format(
+            'короткая ссылка не должна отобразиться на главной странице'
+        )
     )
 
 
 def test_len_short_id_autogenerated_view(client):
-    client.post('/', data={
-        'original_link': py_url,
+    client.post(INDEX_URL, data={
+        'original_link': PY_URL,
     })
-    unique_id = URLMap.query.filter_by(original=py_url).first()
+    unique_id = URLMap.query.filter_by(original=PY_URL).first()
     assert len(unique_id.short) == 6, (
-        'Если в форме не указана короткая ссылка - '
-        'должна генерироваться короткая ссылка длинной 6 символов.'
+        'Если в отправленной форме не указан пользовательский вариант '
+        'короткой ссылки - должно быть сгенерировано значение для поля '
+        '`short` объекта `URLMap` длинной в 6 символов.'
     )
 
 
 @pytest.mark.parametrize('data', [
-    ({'url': py_url, 'custom_id': '.,/!?'}),
-    ({'url': py_url, 'custom_id': 'Hodor-Hodor'}),
-    ({'url': py_url, 'custom_id': 'h@k$r'}),
-    ({'url': py_url, 'custom_id': '$'}),
+    ({'url': PY_URL, 'custom_id': '.,/!?'}),
+    ({'url': PY_URL, 'custom_id': 'Hodor-Hodor'}),
+    ({'url': PY_URL, 'custom_id': 'h@k$r'}),
+    ({'url': PY_URL, 'custom_id': '$'}),
 ])
 def test_invalid_short_url(data, client):
-    client.post('/', data=data)
-    unique_id = URLMap.query.filter_by(original=py_url).first()
-    assert not unique_id, (
-        'В короткой ссылке должно быть разрешено использование строго '
-        'определённого набора символов. Обратитесь к тексту задания.'
+    client.post(INDEX_URL, data=data)
+    url_map_object = URLMap.query.filter_by(original=PY_URL).first()
+    assert not url_map_object, (
+        'Если пользовательский вариант которкой ссылки, отправленный через '
+        'форму на главной странице содержит недопустымые символы - '
+        'новая запись в базе данных не должна быть создана.\n'
+        'Допустимы только латинские буквы (верхнего и нижнего регистра) '
+        'и цифры.'
     )

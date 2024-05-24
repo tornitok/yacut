@@ -1,12 +1,15 @@
+from http import HTTPStatus
+
+
 def test_404(client):
-    got = client.get('/enexpected')
-    assert got.status_code == 404, (
-        'При обращении к несуществующей странице возвращайте статуc-код `404`'
+    response = client.get('/unexpected')
+    assert response.status_code == HTTPStatus.NOT_FOUND, (
+        'При обращении к несуществующей странице должна вернуться ошибка 404.'
     )
     assert (
-        'If you entered the URL manually please check your spelling and try again.'  # noqa
-        not in got.data.decode('utf-8')
+        ('If you entered the URL manually please check your spelling and try '
+         'again.') not in response.data.decode('utf-8')
     ), (
-        'Добавьте обработку обращения к несуществующим страницам. Вам '
-        'пригодится шаблон 404.html'
+        'Убедитесь, что в проекте реализован и подключен собственный шаблон '
+        'для отображения страницы с ошибкой 404.'
     )

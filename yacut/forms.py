@@ -10,7 +10,6 @@ class URLMapForm(FlaskForm):
                     Length(1, 128)]
     )
     custom_id = TextAreaField(
-        'Напишите мнение',
-        validators=[DataRequired(message='Обязательное поле')]
+        'Напишите мнение'
     )
-    submit = SubmitField('Добавить')
+    submit = SubmitField('Создать')

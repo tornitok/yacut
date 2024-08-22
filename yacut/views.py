@@ -1,4 +1,5 @@
-from flask import render_template, redirect, flash
+from flask import flash, redirect, render_template
+
 from . import app, db
 from .forms import URLMapForm
 from .models import URLMap
@@ -11,8 +12,10 @@ def index():
     if form.validate_on_submit():
         original_link = form.original_link.data
         custom_id = form.custom_id.data or get_unique_short_id()
-        if URLMap.query.filter_by(short=custom_id).first():
-            flash('Short ID already exists, please choose another one.')
+        if len(custom_id) > 16:
+            flash('Ваша ссылка привышает допустимое колличество символов.')
+        elif URLMap.query.filter_by(short=custom_id).first():
+            flash('Предложенный вариант короткой ссылки уже существует.')
         else:
             url_map = URLMap(original=original_link, short=custom_id)
             db.session.add(url_map)

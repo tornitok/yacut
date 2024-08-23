@@ -1,6 +1,6 @@
-from flask import jsonify, render_template, request
+from flask import jsonify, render_template
 
-from . import app
+from . import app, db
 
 
 class InvalidAPIUsage(Exception):
@@ -27,25 +27,22 @@ def handle_invalid_api_usage(error):
 
 
 @app.errorhandler(404)
-def not_found_error(error):
+def page_not_found(error):
     return render_template('404.html'), 404
 
 
 @app.errorhandler(500)
 def internal_error(error):
-    return render_template('index.html'), 500
+    db.session.rollback()
+    return render_template('500.html'), 500
 
 
-# Обработчики ошибок для API
 @app.errorhandler(404)
-def api_not_found_error(error):
-    if request.path.startswith('/api/'):
-        return jsonify(error="Resource not found"), 404
-    return render_template('404.html'), 404
+def not_found_error(error):
+    return jsonify({'message': 'Странице не найдена'}), 404
 
 
 @app.errorhandler(500)
-def api_internal_error(error):
-    if request.path.startswith('/api/'):
-        return jsonify(error="Internal server error"), 500
-    return render_template('index.html'), 500
+def internal_error(error):
+    db.session.rollback()
+    return jsonify({'message': 'Ошибка сервера'}), 500

@@ -4,6 +4,7 @@ from . import app, db
 from .forms import URLMapForm
 from .models import URLMap
 from .utils import get_unique_short_id
+from .constants import MAX_CHARACTERS
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -12,7 +13,7 @@ def index():
     if form.validate_on_submit():
         original_link = form.original_link.data
         custom_id = form.custom_id.data or get_unique_short_id()
-        if len(custom_id) > 16:
+        if len(custom_id) > MAX_CHARACTERS:
             flash('Ваша ссылка привышает допустимое колличество символов.')
         elif URLMap.query.filter_by(short=custom_id).first():
             flash('Предложенный вариант короткой ссылки уже существует.')

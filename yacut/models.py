@@ -10,5 +10,5 @@ class URLMap(db.Model):
     timestamp = db.Column(
         db.DateTime,
         index=True,
-        default=datetime.now(timezone.utc)
+        default=lambda: datetime.now(timezone.utc)
     )

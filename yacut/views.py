@@ -22,9 +22,7 @@ def index():
             db.session.add(url_map)
             db.session.commit()
             return render_template(
-                'index.html',
-                form=form,
-                short_url=custom_id
+                'index.html', form=form, short_url=custom_id
             )
     return render_template('index.html', form=form)
 

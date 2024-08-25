@@ -48,6 +48,5 @@ def not_found_error(error):
 def internal_error(error):
     db.session.rollback()
     return jsonify(
-        {'message': 'Ошибка сервера'},
-        HTTPStatus.INTERNAL_SERVER_ERROR
+        {'message': 'Ошибка сервера'}, HTTPStatus.INTERNAL_SERVER_ERROR
     )

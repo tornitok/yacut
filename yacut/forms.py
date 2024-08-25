@@ -5,11 +5,10 @@ from wtforms.validators import DataRequired, Length
 
 class URLMapForm(FlaskForm):
     original_link = URLField(
-        'Введите название фильма',
-        validators=[DataRequired(message='Обязательное поле'),
-                    Length(1, 128)]
+        'Длинная ссылка',
+        validators=[DataRequired(message='Обязательное поле'), Length(1, 128)],
     )
     custom_id = TextAreaField(
-        'Напишите мнение',
+        'Ваш вариант короткой ссылки',
     )
     submit = SubmitField('Создать')
